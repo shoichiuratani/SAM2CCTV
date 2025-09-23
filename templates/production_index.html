@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 YOLO11 Person Tracking System | Production</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .upload-section h2 {
+            color: #4c51bf;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .upload-zone {
+            border: 3px dashed #4c51bf;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-zone:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .upload-zone.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #4c51bf;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #4c51bf;
+            box-shadow: 0 0 0 3px rgba(76, 81, 191, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .status-section h2 {
+            color: #059669;
+            margin-bottom: 20px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            background: rgba(16, 185, 129, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #059669;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        .jobs-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .job-item {
+            background: rgba(249, 250, 251, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4c51bf;
+        }
+        
+        .job-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-queued { background: #fbbf24; color: white; }
+        .status-processing { background: #3b82f6; color: white; }
+        .status-completed { background: #10b981; color: white; }
+        .status-failed { background: #ef4444; color: white; }
+        
+        .progress-section {
+            grid-column: span 2;
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #10b981, #059669);
+            transition: width 0.3s ease;
+        }
+        
+        .system-info {
+            grid-column: span 2;
+            background: rgba(17, 24, 39, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .tech-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .tech-badge {
+            background: linear-gradient(45deg, #4c51bf, #667eea);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #1e40af;
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #047857;
+        }
+        
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #dc2626;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #4c51bf;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .progress-section {
+                grid-column: span 1;
+            }
+            
+            .system-info {
+                grid-column: span 1;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 YOLO11 Person Tracking System</h1>
+            <p>Enterprise-grade AI-powered person detection and tracking</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Upload Section -->
+            <div class="card upload-section">
+                <h2>📤 Upload & Process</h2>
+                
+                <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()">
+                    <div class="upload-icon">📁</div>
+                    <p><strong>Click to select file</strong> or drag and drop</p>
+                    <p>Supported: MP4, AVI, MOV, JPG, PNG (Max 2GB)</p>
+                </div>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    <input type="file" id="file-input" name="file" accept="video/*,image/*" style="display: none;">
+                    
+                    <div class="form-group">
+                        <label for="processing-mode">🔧 Processing Mode</label>
+                        <select id="processing-mode" name="processing_mode" class="form-control">
+                            {% if advanced_available %}
+                            <option value="local_advanced">🏠 Local YOLO11+DeepSORT+SAM2</option>
+                            <option value="advanced_server">🌐 Remote High-Precision Server</option>
+                            {% endif %}
+                            <option value="standard">📱 Standard OpenCV Tracking</option>
+                            <option value="instant">⚡ Instant Processing</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model-size">🧠 YOLO Model Size</label>
+                        <select id="model-size" name="model_size" class="form-control">
+                            <option value="n">Nano (Fastest)</option>
+                            <option value="s">Small (Balanced)</option>
+                            <option value="m">Medium (Accurate)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confidence">🎚️ Detection Confidence</label>
+                        <input type="range" id="confidence" name="confidence" 
+                               min="0.1" max="0.9" step="0.1" value="0.3" class="form-control">
+                        <span id="confidence-value">0.3</span>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="upload-btn">
+                        🚀 Start Processing
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Status Section -->
+            <div class="card status-section">
+                <h2>📊 System Status</h2>
+                
+                <div class="status-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="total-processed">{{ system_stats.total_processed }}</div>
+                        <div class="stat-label">Total Processed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="success-rate">{{ "%.1f"|format(system_stats.success_rate if system_stats.total_processed > 0 else 0) }}%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avg-time">{{ "%.2f"|format(system_stats.avg_processing_time) }}s</div>
+                        <div class="stat-label">Avg Processing</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="uptime">{{ "%.1f"|format(system_stats.uptime_seconds/3600) }}h</div>
+                        <div class="stat-label">System Uptime</div>
+                    </div>
+                </div>
+                
+                <h3>🔄 Active Jobs</h3>
+                <div id="jobs-list" class="jobs-list">
+                    <div class="alert alert-info">No active jobs</div>
+                </div>
+                
+                <button onclick="refreshJobs()" class="btn btn-secondary">🔄 Refresh</button>
+            </div>
+        </div>
+        
+        <!-- Progress Section -->
+        <div class="card progress-section">
+            <h2>⏳ Processing Progress</h2>
+            <div id="progress-container" class="hidden">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <p id="progress-text">Initializing...</p>
+            </div>
+            <div id="results-container" class="hidden">
+                <h3>✅ Results</h3>
+                <div id="results-content"></div>
+            </div>
+        </div>
+        
+        <!-- System Information -->
+        <div class="card system-info">
+            <h2>🛠️ System Information</h2>
+            <p><strong>Session ID:</strong> {{ session_id[:8] }}...</p>
+            <p><strong>Advanced Tracking:</strong> 
+                {% if advanced_available %}
+                    <span style="color: #10b981;">✅ Available</span>
+                {% else %}
+                    <span style="color: #ef4444;">❌ Unavailable</span>
+                {% endif %}
+            </p>
+            <p><strong>Server Status:</strong> <span id="server-status">🟢 Online</span></p>
+            
+            <div class="tech-badges">
+                <span class="tech-badge">YOLO11</span>
+                <span class="tech-badge">DeepSORT</span>
+                <span class="tech-badge">SAM2</span>
+                <span class="tech-badge">OpenCV</span>
+                <span class="tech-badge">PyTorch</span>
+                <span class="tech-badge">Flask</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global variables
+        let currentJobId = null;
+        let statusCheckInterval = null;
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFileUpload();
+            setupConfidenceSlider();
+            refreshJobs();
+            startStatusUpdates();
+        });
+        
+        function setupFileUpload() {
+            const uploadZone = document.getElementById('upload-zone');
+            const fileInput = document.getElementById('file-input');
+            const uploadForm = document.getElementById('upload-form');
+            
+            // Drag and drop
+            uploadZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+            
+            uploadZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+            });
+            
+            uploadZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    updateUploadZone(files[0].name);
+                }
+            });
+            
+            // File input change
+            fileInput.addEventListener('change', function() {
+                if (fileInput.files.length > 0) {
+                    updateUploadZone(fileInput.files[0].name);
+                }
+            });
+            
+            // Form submission
+            uploadForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                handleUpload();
+            });
+        }
+        
+        function setupConfidenceSlider() {
+            const slider = document.getElementById('confidence');
+            const valueDisplay = document.getElementById('confidence-value');
+            
+            slider.addEventListener('input', function() {
+                valueDisplay.textContent = slider.value;
+            });
+        }
+        
+        function updateUploadZone(filename) {
+            const uploadZone = document.getElementById('upload-zone');
+            uploadZone.innerHTML = `
+                <div class="upload-icon">📄</div>
+                <p><strong>Selected:</strong> ${filename}</p>
+                <p>Click to select different file</p>
+            `;
+        }
+        
+        function handleUpload() {
+            const fileInput = document.getElementById('file-input');
+            const uploadBtn = document.getElementById('upload-btn');
+            
+            if (!fileInput.files.length) {
+                showAlert('Please select a file first', 'error');
+                return;
+            }
+            
+            // Show loading state
+            uploadBtn.innerHTML = '<div class="loading-spinner"></div>Uploading...';
+            uploadBtn.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('processing_mode', document.getElementById('processing-mode').value);
+            formData.append('model_size', document.getElementById('model-size').value);
+            formData.append('confidence', document.getElementById('confidence').value);
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                uploadBtn.innerHTML = '🚀 Start Processing';
+                uploadBtn.disabled = false;
+                
+                if (data.success) {
+                    if (data.job_id) {
+                        // Queued processing
+                        currentJobId = data.job_id;
+                        showProgress();
+                        startJobTracking(data.job_id);
+                    } else {
+                        // Instant processing
+                        showResults(data);
+                    }
+                    showAlert('File uploaded successfully!', 'success');
+                    refreshJobs();
+                } else {
+                    showAlert(data.error || 'Upload failed', 'error');
+                }
+            })
+            .catch(error => {
+                uploadBtn.innerHTML = '🚀 Start Processing';
+                uploadBtn.disabled = false;
+                showAlert('Upload error: ' + error.message, 'error');
+            });
+        }
+        
+        function startJobTracking(jobId) {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            
+            statusCheckInterval = setInterval(() => {
+                checkJobStatus(jobId);
+            }, 2000);
+            
+            // Initial check
+            checkJobStatus(jobId);
+        }
+        
+        function checkJobStatus(jobId) {
+            fetch(`/api/job_status/${jobId}`)
+            .then(response => response.json())
+            .then(data => {
+                updateProgress(data);
+                
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(statusCheckInterval);
+                    
+                    if (data.status === 'completed') {
+                        showResults(data.result, jobId);
+                    } else {
+                        showAlert('Processing failed: ' + (data.error || 'Unknown error'), 'error');
+                        hideProgress();
+                    }
+                    refreshJobs();
+                }
+            })
+            .catch(error => {
+                console.error('Status check error:', error);
+            });
+        }
+        
+        function updateProgress(jobData) {
+            const progressText = document.getElementById('progress-text');
+            const progressFill = document.getElementById('progress-fill');
+            
+            switch (jobData.status) {
+                case 'queued':
+                    progressText.textContent = 'Queued for processing...';
+                    progressFill.style.width = '10%';
+                    break;
+                case 'processing':
+                    progressText.textContent = 'Processing with AI models...';
+                    progressFill.style.width = '50%';
+                    break;
+                case 'completed':
+                    progressText.textContent = 'Processing completed!';
+                    progressFill.style.width = '100%';
+                    break;
+                case 'failed':
+                    progressText.textContent = 'Processing failed';
+                    progressFill.style.width = '100%';
+                    progressFill.style.background = 'linear-gradient(45deg, #ef4444, #dc2626)';
+                    break;
+            }
+        }
+        
+        function showProgress() {
+            document.getElementById('progress-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+        }
+        
+        function hideProgress() {
+            document.getElementById('progress-container').classList.add('hidden');
+        }
+        
+        function showResults(resultData, jobId = null) {
+            hideProgress();
+            
+            const resultsContainer = document.getElementById('results-container');
+            const resultsContent = document.getElementById('results-content');
+            
+            let html = '<div class="alert alert-success">Processing completed successfully!</div>';
+            
+            if (resultData.processing_method) {
+                html += `<p><strong>Method:</strong> ${resultData.processing_method}</p>`;
+            }
+            
+            if (resultData.stats) {
+                html += '<h4>📊 Statistics</h4><ul>';
+                for (const [key, value] of Object.entries(resultData.stats)) {
+                    html += `<li><strong>${key.replace(/_/g, ' ')}:</strong> ${value}</li>`;
+                }
+                html += '</ul>';
+            }
+            
+            if (resultData.technologies) {
+                html += '<h4>🔧 Technologies Used</h4>';
+                html += '<div class="tech-badges">';
+                for (const tech of resultData.technologies) {
+                    html += `<span class="tech-badge">${tech}</span>`;
+                }
+                html += '</div>';
+            }
+            
+            if (jobId) {
+                html += `<p><a href="/api/download/${jobId}" class="btn btn-success">📥 Download Result</a></p>`;
+            }
+            
+            resultsContent.innerHTML = html;
+            resultsContainer.classList.remove('hidden');
+        }
+        
+        function refreshJobs() {
+            fetch('/api/active_jobs')
+            .then(response => response.json())
+            .then(data => {
+                const jobsList = document.getElementById('jobs-list');
+                
+                if (data.jobs.length === 0) {
+                    jobsList.innerHTML = '<div class="alert alert-info">No active jobs</div>';
+                } else {
+                    let html = '';
+                    for (const job of data.jobs) {
+                        html += `
+                            <div class="job-item">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${job.original_filename}</strong>
+                                        <span class="job-status status-${job.status}">${job.status}</span>
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: #6b7280;">
+                                        ${job.processing_mode} • ${new Date(job.created_at).toLocaleTimeString()}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    jobsList.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Jobs refresh error:', error);
+            });
+        }
+        
+        function startStatusUpdates() {
+            setInterval(() => {
+                fetch('/api/system_stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-processed').textContent = data.total_processed;
+                    document.getElementById('success-rate').textContent = data.success_rate.toFixed(1) + '%';
+                    document.getElementById('avg-time').textContent = data.avg_processing_time.toFixed(2) + 's';
+                    document.getElementById('uptime').textContent = (data.uptime_seconds / 3600).toFixed(1) + 'h';
+                })
+                .catch(error => {
+                    console.error('Stats update error:', error);
+                });
+            }, 5000);
+        }
+        
+        function showAlert(message, type) {
+            // Create and show alert (implement as needed)
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    </script>
+</body>
+</html>

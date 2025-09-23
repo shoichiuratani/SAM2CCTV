@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-09-23 07:17:30",
+  "total_tests": 1,
+  "results": [
+    {
+      "test_type": "video_file",
+      "input_file": "realistic_test.mp4",
+      "success": true,
+      "video_info": {
+        "width": 640,
+        "height": 480,
+        "fps": 15.0,
+        "total_frames": 75
+      },
+      "processing_stats": {
+        "total_time": 15.67252492904663,
+        "total_processing_time": 15.396162748336792,
+        "avg_fps": 4.8713436734813715,
+        "real_time_factor": 3.0792325496673585
+      },
+      "detection_stats": {
+        "total_detections": 91,
+        "avg_detections_per_frame": 1.2133333333333334,
+        "unique_tracks": 91
+      },
+      "frame_results": [
+        {
+          "frame_idx": 0,
+          "detections": 0,
+          "tracked_objects": 0,
+          "processing_time": 0.48748254776000977,
+          "detection_details": []
+        },
+        {
+          "frame_idx": 1,
+          "detections": 1,
+          "tracked_objects": 1,
+          "processing_time": 0.21609997749328613,
+          "detection_details": [
+            {
+              "id": 0,
+              "bbox": [
+                496.80950927734375,
+                87.55729675292969,
+                573.8644409179688,
+                226.55323791503906
+              ],
+              "bbox_norm": [
+                0.7762648463249207,
+                0.18241102993488312,
+                0.8966631889343262,
+                0.47198590636253357
+              ],
+              "confidence": 0.6418189406394958,
+              "class_name": "person",
+              "detection_method": "YOLO11",
+              "track_id": 1,
+              "tracking_method": "Simple",
+              "mask": 
