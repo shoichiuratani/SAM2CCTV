@@ -1,0 +1,101 @@
+{
+  "session_20250923_011200_9312": {
+    "session_id": "session_20250923_011200_9312",
+    "timestamp": "2025-09-23T01:13:09.909806",
+    "file_info": {
+      "name": "video.mp4",
+      "size": 48170507,
+      "type": "video/mp4",
+      "upload_time": "2025-09-23T01:12:18.430516",
+      "temp_path": "/tmp/tmpw02i0am5.mp4",
+      "inference_result": {
+        "detection_results": {
+          "frames_with_persons": 142,
+          "persons_detected": [
+            {
+              "frame_number": 1,
+              "persons": [
+                {
+                  "bbox": [
+                    100,
+                    150,
+                    200,
+                    350
+                  ],
+                  "confidence": 0.95,
+                  "id": 1
+                },
+                {
+                  "bbox": [
+                    300,
+                    120,
+                    400,
+                    380
+                  ],
+                  "confidence": 0.87,
+                  "id": 2
+                }
+              ],
+              "timestamp": "00:00:01"
+            },
+            {
+              "frame_number": 30,
+              "persons": [
+                {
+                  "bbox": [
+                    110,
+                    160,
+                    210,
+                    360
+                  ],
+                  "confidence": 0.92,
+                  "id": 1
+                }
+              ],
+              "timestamp": "00:00:30"
+            }
+          ],
+          "total_frames": 150
+        },
+        "model_version": "Grounded-SAM-2-mock",
+        "processed_at": "2025-09-23T01:12:18.416353",
+        "processing_time": 2.1,
+        "success": true,
+        "task": "person_detection",
+        "video_info": {
+          "filename": "video.mp4",
+          "format": "video/mp4",
+          "size_bytes": 48170507
+        }
+      },
+      "source": "url_download"
+    },
+    "tracking_video_path": "/tmp/tracked_video_20250923_011223.mp4",
+    "status": "completed",
+    "persistent_video_path": "/home/user/webapp/processed_videos/tracking_session_20250923_011200_9312_20250923_011309.mp4"
+  },
+  "session_20250923_020207": {
+    "session_id": "session_20250923_020207",
+    "timestamp": "2025-09-23T02:02:07.097099",
+    "file_info": {},
+    "tracking_video_path": "/tmp/tracked_video_20250923_020203.mp4",
+    "status": "completed",
+    "persistent_video_path": "processed_videos/tracking_session_20250923_020207_20250923_020207.mp4"
+  },
+  "session_20250923_020416": {
+    "session_id": "session_20250923_020416",
+    "timestamp": "2025-09-23T02:04:16.236287",
+    "file_info": {},
+    "tracking_video_path": "/tmp/tracked_video_20250923_020345.mp4",
+    "status": "completed",
+    "persistent_video_path": "processed_videos/tracking_session_20250923_020416_20250923_020416.mp4"
+  },
+  "session_20250923_020651": {
+    "session_id": "session_20250923_020651",
+    "timestamp": "2025-09-23T02:06:51.236915",
+    "file_info": {},
+    "tracking_video_path": "/tmp/tracked_video_20250923_020647.mp4",
+    "status": "completed",
+    "persistent_video_path": "processed_videos/tracking_session_20250923_020651_20250923_020651.mp4"
+  }
+}

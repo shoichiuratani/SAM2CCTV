@@ -1,0 +1,544 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Grounded-SAM-2 デバッグアプリケーション (Flask版)</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: #ff4757;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #ff3742;
+        }
+        .button.secondary {
+            background: #3742fa;
+        }
+        .button.secondary:hover {
+            background: #2f32e2;
+        }
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .log-container div {
+            margin-bottom: 2px;
+        }
+        .log-container .success-log { color: #2ecc71; }
+        .log-container .error-log { color: #e74c3c; }
+        .log-container .warning-log { color: #f39c12; }
+        .log-container .info-log { color: #3498db; }
+        .result-container {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        .info { color: #3498db; }
+        .file-input {
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px dashed #bdc3c7;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .video-archive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .video-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Grounded-SAM-2 ビデオ分析システム</h1>
+            <h2>Flask デバッグアプリケーション</h2>
+            <p>人物検出・トラッキング・COBOL統合対応</p>
+        </div>
+
+        <div class="grid">
+            <div>
+                <div class="card">
+                    <h3>📁 ファイルアップロード</h3>
+                    <div class="file-input">
+                        <input type="file" id="fileInput" accept="video/*,.mp4,.avi,.mov,.wmv,.mkv" />
+                        <p>ビデオファイルを選択してください (MP4, AVI, MOV, WMV, MKV対応)</p>
+                        <p id="fileInfo" style="color: #3498db; font-size: 12px; margin-top: 5px;"></p>
+                    </div>
+                    <button class="button" onclick="uploadFile()" id="uploadBtn" disabled>🚀 ファイルを処理</button>
+                    <p style="font-size: 12px; color: #7f8c8d;">最大ファイルサイズ: 2GB</p>
+                </div>
+
+                <div class="card">
+                    <h3>🔗 URL経由処理</h3>
+                    <input type="text" class="url-input" id="urlInput" value="{{ video_url }}" placeholder="ビデオファイルのURLを入力">
+                    <button class="button secondary" onclick="processUrl()">🌐 URLから処理開始</button>
+                </div>
+
+                <div class="card">
+                    <h3>⚡ システム操作</h3>
+                    <button class="button" onclick="testProcess()">🧪 ローカルテスト処理</button>
+                    <button class="button" onclick="advancedTestProcess()" style="background: linear-gradient(45deg, #ff4757, #3742fa); color: white; font-weight: bold;">🚀 YOLO11+DeepSORT+SAM2</button>
+                    <button class="button" onclick="testAdvancedServer()" style="background: linear-gradient(45deg, #2ecc71, #3498db); color: white; font-weight: bold;">🌐 リモート高精度サーバー</button>
+                    <button class="button" onclick="refreshLogs()">🔄 ログ更新</button>
+                    <button class="button" onclick="clearLogs()">🗑️ ログクリア</button>
+                    <button class="button secondary" onclick="location.reload()">🔄 ページ再読み込み</button>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h3>📊 処理結果</h3>
+                    <div class="loading" id="loading">
+                        <p>🔄 処理中...</p>
+                    </div>
+                    <div id="result" class="result-container">
+                        <p>処理結果がここに表示されます</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📚 処理済み動画アーカイブ</h3>
+            <div class="video-archive" id="videoArchive">
+                {% for video in archived_videos %}
+                <div class="video-item">
+                    <strong>{{ video.timestamp }}</strong> - {{ video.session_id }} ({{ (video.file_size / (1024*1024)) | round(2) }} MB)
+                    <button class="button secondary" onclick="downloadVideo('{{ video.session_id }}')">📥 ダウンロード</button>
+                </div>
+                {% endfor %}
+                {% if not archived_videos %}
+                <p>処理済み動画はありません</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔍 デバッグログ</h3>
+            <div class="log-container" id="logContainer">
+                {% for log in debug_logs %}
+                <div>{{ log }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').innerHTML = '<p>処理中...</p>';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('ファイルを選択してください');
+                return;
+            }
+
+            // ファイルサイズチェック (2GB = 2147483648 bytes)
+            if (file.size > 2147483648) {
+                alert('ファイルサイズが大きすぎます。2GB以下のファイルを選択してください。');
+                return;
+            }
+
+            showLoading();
+            document.getElementById('result').innerHTML = '<p class="info">📤 ファイルアップロード中: ' + file.name + ' (' + (file.size / (1024*1024)).toFixed(2) + ' MB)</p>';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideLoading();
+                displayResult(data);
+                refreshLogs();
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">❌ アップロードエラー: ' + error + '</p>';
+                refreshLogs();
+            });
+        }
+
+        // ファイル選択時の処理
+        function setupFileInput() {
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const sizeMB = (file.size / (1024*1024)).toFixed(2);
+                    fileInfo.innerHTML = '✅ 選択済み: ' + file.name + ' (' + sizeMB + ' MB)';
+                    uploadBtn.disabled = false;
+                    uploadBtn.style.opacity = '1';
+                } else {
+                    fileInfo.innerHTML = '';
+                    uploadBtn.disabled = true;
+                    uploadBtn.style.opacity = '0.5';
+                }
+            });
+        }
+
+        function processUrl() {
+            const url = document.getElementById('urlInput').value;
+            
+            if (!url) {
+                alert('URLを入力してください');
+                return;
+            }
+
+            showLoading();
+
+            fetch('/process_url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({url: url})
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                displayResult(data);
+                refreshLogs();
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">エラー: ' + error + '</p>';
+            });
+        }
+
+        function testProcess() {
+            showLoading();
+            
+            fetch('/test_process', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                displayResult(data);
+                refreshLogs();
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">エラー: ' + error + '</p>';
+            });
+        }
+
+        function advancedTestProcess() {
+            showLoading();
+            document.getElementById('result').innerHTML = '<p class="info">🚀 YOLO11+DeepSORT+SAM2高精度処理を開始中...</p>';
+            
+            fetch('/advanced_test_process', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                displayAdvancedResult(data);
+                refreshLogs();
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">❌ 高精度処理エラー: ' + error + '</p>';
+            });
+        }
+
+        function testAdvancedServer() {
+            showLoading();
+            document.getElementById('result').innerHTML = '<p class="info">🌐 リモート高精度サーバーをテスト中...</p>';
+            
+            fetch('/test_advanced_server', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                displayRemoteServerResult(data);
+                refreshLogs();
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p class="error">❌ リモートサーバーテストエラー: ' + error + '</p>';
+            });
+        }
+
+        function displayRemoteServerResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            if (data.error) {
+                resultDiv.innerHTML = '<p class="error">❌ ' + data.error + '</p>';
+                return;
+            }
+
+            if (!data.success) {
+                resultDiv.innerHTML = '<p class="error">❌ リモートサーバーテスト失敗</p>';
+                return;
+            }
+
+            let html = '<h4 class="success">🌐 リモート高精度サーバーテスト完了</h4>';
+            
+            if (data.server_url) {
+                html += `<p><strong>🔗 サーバーURL:</strong> <a href="${data.server_url}" target="_blank">${data.server_url}</a></p>`;
+            }
+            
+            if (data.health_status) {
+                html += `<p><strong>💚 サーバーステータス:</strong> ${data.health_status.status}</p>`;
+                html += `<p><strong>⏱️ レスポンス時間:</strong> ${data.health_status.timestamp}</p>`;
+            }
+            
+            if (data.processing_method) {
+                html += `<p><strong>🧮 処理方式:</strong> ${data.processing_method}</p>`;
+            }
+            
+            if (data.technologies && Array.isArray(data.technologies)) {
+                html += `<p><strong>🔧 利用技術:</strong> ${data.technologies.join(', ')}</p>`;
+            }
+            
+            if (data.tracking_result && data.tracking_result.success) {
+                const result = data.tracking_result;
+                html += '<div class="stats">';
+                html += '<h5>📊 処理結果統計</h5>';
+                
+                if (result.stats) {
+                    html += `<p>📹 処理フレーム数: ${result.stats.frames_processed || 'N/A'}</p>`;
+                    html += `<p>🎯 検出総数: ${result.stats.total_objects_detected || 0}</p>`;
+                    html += `<p>🔍 追跡ID数: ${result.stats.unique_tracks || 0}</p>`;
+                }
+                
+                if (result.processing_time) {
+                    html += `<p>⏱️ 処理時間: ${result.processing_time.toFixed(2)}秒</p>`;
+                }
+                
+                html += '</div>';
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function displayResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            if (data.error) {
+                resultDiv.innerHTML = '<p class="error">❌ ' + data.error + '</p>';
+                return;
+            }
+
+            let html = '<h4 class="success">✅ 処理完了</h4>';
+            
+            if (data.file_info) {
+                html += '<p><strong>ファイル:</strong> ' + data.file_info.filename + ' (' + data.file_info.size_mb + ' MB)</p>';
+            }
+            
+            if (data.statistics) {
+                html += '<p><strong>検出された人物数:</strong> ' + data.statistics.persons_detected + '</p>';
+                html += '<p><strong>処理時間:</strong> ' + data.statistics.processing_time + '</p>';
+            }
+            
+            if (data.boxes && data.boxes.length > 0) {
+                html += '<h5>🎯 検出結果:</h5>';
+                html += '<ul>';
+                for (let i = 0; i < data.boxes.length; i++) {
+                    const box = data.boxes[i];
+                    html += '<li>Person ' + (i+1) + ': [' + box.map(x => Math.round(x)).join(', ') + ']</li>';
+                }
+                html += '</ul>';
+            }
+            
+            if (data.cobol_integration) {
+                html += '<p class="success">🔗 COBOL統合: 完了</p>';
+            }
+            
+            if (data.saved_info) {
+                html += '<p class="success">💾 結果保存: ' + data.saved_info.unique_id + '</p>';
+            }
+
+            html += '<details><summary>📋 詳細結果 (JSON)</summary><pre>' + JSON.stringify(data, null, 2) + '</pre></details>';
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function displayAdvancedResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            if (data.error) {
+                resultDiv.innerHTML = '<p class="error">❌ ' + data.error + '</p>';
+                if (data.fallback) {
+                    resultDiv.innerHTML += '<p class="warning">💡 ' + data.fallback + '</p>';
+                }
+                return;
+            }
+
+            let html = '<h4 class="success">🚀 YOLO11+DeepSORT+SAM2 処理完了</h4>';
+            
+            if (data.file_info) {
+                html += '<p><strong>ファイル:</strong> ' + data.file_info.filename + ' (' + data.file_info.size_mb + ' MB)</p>';
+            }
+            
+            if (data.advanced_tracking) {
+                html += '<div style="background: linear-gradient(45deg, #2ecc71, #3498db); color: white; padding: 10px; border-radius: 5px; margin: 10px 0;">';
+                html += '<h5>🎯 高精度トラッキング結果</h5>';
+                
+                if (data.technologies) {
+                    html += '<p><strong>使用技術:</strong> ' + data.technologies.join(' + ') + '</p>';
+                }
+                
+                if (data.stats) {
+                    html += '<p><strong>処理フレーム数:</strong> ' + data.stats.total_frames + '</p>';
+                    html += '<p><strong>総検出数:</strong> ' + data.stats.total_detections + '</p>';
+                    html += '<p><strong>追跡ID数:</strong> ' + data.stats.total_tracks + '</p>';
+                    html += '<p><strong>平均FPS:</strong> ' + data.stats.avg_fps.toFixed(1) + '</p>';
+                }
+                
+                if (data.output_video_path) {
+                    html += '<p><strong>出力動画:</strong> ' + data.output_video_path + '</p>';
+                }
+                
+                html += '</div>';
+            }
+
+            html += '<details><summary>📋 詳細結果 (JSON)</summary><pre>' + JSON.stringify(data, null, 2) + '</pre></details>';
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function refreshLogs() {
+            fetch('/logs')
+            .then(response => response.json())
+            .then(data => {
+                const logContainer = document.getElementById('logContainer');
+                logContainer.innerHTML = data.logs.map(log => {
+                    let className = '';
+                    if (log.includes('[SUCCESS]')) className = 'success-log';
+                    else if (log.includes('[ERROR]')) className = 'error-log';
+                    else if (log.includes('[WARNING]')) className = 'warning-log';
+                    else if (log.includes('[INFO]')) className = 'info-log';
+                    
+                    return '<div class="' + className + '">' + log + '</div>';
+                }).join('');
+                logContainer.scrollTop = logContainer.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Error refreshing logs:', error);
+            });
+        }
+
+        function clearLogs() {
+            fetch('/clear_logs', {method: 'POST'})
+            .then(() => {
+                refreshLogs();
+            })
+            .catch(error => {
+                console.error('Error clearing logs:', error);
+            });
+        }
+
+        function downloadVideo(sessionId) {
+            window.open('/download/' + sessionId, '_blank');
+        }
+
+        // Auto-refresh logs every 5 seconds
+        setInterval(refreshLogs, 5000);
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFileInput();
+            refreshLogs();
+        });
+    </script>
+</body>
+</html>
