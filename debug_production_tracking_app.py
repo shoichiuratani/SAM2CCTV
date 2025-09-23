@@ -296,7 +296,7 @@ def process_with_local_advanced(job_data):
         # Initialize tracker with error handling
         try:
             tracker = AdvancedPersonTracker(
-                yolo_model=job_data['model_size'],
+                yolo_model=job_data['model_size'].replace('yolo11', ''),  # Remove 'yolo11' prefix if present
                 yolo_confidence=job_data['confidence'],
                 deepsort_max_disappeared=30,
                 sam2_model='small'
@@ -329,11 +329,24 @@ def process_with_local_advanced(job_data):
             
             logger.info(f"📊 Video info: {width}x{height}, {fps}fps, {frame_count} frames")
             
+            # Create output file path
+            output_filename = f"tracked_{job_data['job_id']}.mp4"
+            output_path = os.path.join(app.config['RESULTS_FOLDER'], output_filename)
+            logger.info(f"💾 Output will be saved to: {output_path}")
+            
+            # Initialize video writer
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            
+            if not out_writer.isOpened():
+                logger.error(f"❌ Cannot create output video writer")
+                return {'success': False, 'error': 'Cannot create output video'}
+            
             # Process video with timeout for long videos
-            max_frames = min(frame_count, 30)  # Limit to 30 frames for safety
+            max_frames = min(frame_count, 300)  # Process more frames now that we're saving output
             logger.info(f"🎯 Processing max {max_frames} frames")
             
-            # Simple frame-by-frame processing for debugging
+            # Process frame-by-frame with annotation
             cap = cv2.VideoCapture(job_data['file_path'])
             total_detections = 0
             processed_frames = 0
@@ -349,33 +362,82 @@ def process_with_local_advanced(job_data):
                     total_detections += detections
                     processed_frames += 1
                     
-                    if i % 5 == 0:  # Log every 5th frame
+                    # Annotate frame with detections
+                    annotated_frame = frame.copy()
+                    
+                    # Draw bounding boxes for detections
+                    for detection in result['detections']:
+                        bbox = detection['bbox']
+                        confidence = detection['confidence']
+                        
+                        # Convert bbox to integers
+                        x1, y1, x2, y2 = map(int, bbox)
+                        
+                        # Draw bounding box
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        
+                        # Add confidence label
+                        label = f"Person: {confidence:.2f}"
+                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+                        cv2.rectangle(annotated_frame, (x1, y1 - label_size[1] - 10), 
+                                    (x1 + label_size[0], y1), (0, 255, 0), -1)
+                        cv2.putText(annotated_frame, label, (x1, y1 - 5), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+                    
+                    # Draw tracked objects (if available)
+                    if 'tracked_objects' in result:
+                        for obj in result['tracked_objects']:
+                            track_id = obj.get('track_id', -1)
+                            bbox = obj.get('bbox', [])
+                            
+                            if len(bbox) == 4:
+                                x1, y1, x2, y2 = map(int, bbox)
+                                # Draw tracking ID
+                                cv2.putText(annotated_frame, f"ID: {track_id}", (x1, y2 + 20), 
+                                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                    
+                    # Write annotated frame
+                    out_writer.write(annotated_frame)
+                    
+                    if i % 10 == 0:  # Log every 10th frame
                         logger.info(f"📹 Frame {i+1}/{max_frames}: {detections} detections")
                         
                 except Exception as e:
                     logger.warning(f"⚠️ Frame {i} processing failed: {e}")
+                    # Write original frame if processing fails
+                    out_writer.write(frame)
                     continue
             
             cap.release()
+            out_writer.release()
             
-            logger.info(f"🎬 Video processing complete: {processed_frames} frames, {total_detections} total detections")
-            
-            return {
-                'success': True,
-                'processing_method': 'Local YOLO11+DeepSORT+SAM2 (Debug)',
-                'stats': {
-                    'frames_processed': processed_frames,
-                    'total_detections': total_detections,
-                    'avg_detections_per_frame': total_detections / processed_frames if processed_frames > 0 else 0,
-                    'video_info': {
-                        'width': width,
-                        'height': height,
-                        'fps': fps,
-                        'total_frames': frame_count
-                    }
-                },
-                'technologies': ['YOLO11', 'DeepSORT', 'SAM2']
-            }
+            # Verify output file was created
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                logger.info(f"✅ Output video created: {output_path} ({os.path.getsize(output_path)} bytes)")
+                
+                logger.info(f"🎬 Video processing complete: {processed_frames} frames, {total_detections} total detections")
+                
+                return {
+                    'success': True,
+                    'processing_method': 'Local YOLO11+DeepSORT+SAM2 (Production)',
+                    'output_path': output_path,
+                    'output_filename': output_filename,
+                    'stats': {
+                        'frames_processed': processed_frames,
+                        'total_detections': total_detections,
+                        'avg_detections_per_frame': total_detections / processed_frames if processed_frames > 0 else 0,
+                        'video_info': {
+                            'width': width,
+                            'height': height,
+                            'fps': fps,
+                            'total_frames': frame_count
+                        }
+                    },
+                    'technologies': ['YOLO11', 'DeepSORT', 'SAM2']
+                }
+            else:
+                logger.error(f"❌ Output video file not created or is empty")
+                return {'success': False, 'error': 'Failed to create output video'}
         else:
             logger.info(f"🖼️ Processing image file: {job_data['file_path']}")
             
@@ -396,19 +458,68 @@ def process_with_local_advanced(job_data):
                 result = tracker.process_frame(frame)
                 detections = len(result['detections'])
                 
-                logger.info(f"🎯 Image processing complete: {detections} detections")
+                # Create output file path
+                output_filename = f"tracked_{job_data['job_id']}.jpg"
+                output_path = os.path.join(app.config['RESULTS_FOLDER'], output_filename)
                 
-                return {
-                    'success': True,
-                    'processing_method': 'Local YOLO11+DeepSORT+SAM2 (Debug)',
-                    'stats': {
-                        'detections': detections,
-                        'tracked_objects': len(result['tracked_objects']),
-                        'image_shape': frame.shape
-                    },
-                    'detection_details': result['detections'][:5],  # First 5 detections
-                    'technologies': ['YOLO11', 'DeepSORT', 'SAM2']
-                }
+                # Annotate image with detections
+                annotated_image = frame.copy()
+                
+                # Draw bounding boxes for detections
+                for detection in result['detections']:
+                    bbox = detection['bbox']
+                    confidence = detection['confidence']
+                    
+                    # Convert bbox to integers
+                    x1, y1, x2, y2 = map(int, bbox)
+                    
+                    # Draw bounding box
+                    cv2.rectangle(annotated_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    
+                    # Add confidence label
+                    label = f"Person: {confidence:.2f}"
+                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+                    cv2.rectangle(annotated_image, (x1, y1 - label_size[1] - 10), 
+                                (x1 + label_size[0], y1), (0, 255, 0), -1)
+                    cv2.putText(annotated_image, label, (x1, y1 - 5), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                
+                # Draw tracked objects (if available)
+                if 'tracked_objects' in result:
+                    for obj in result['tracked_objects']:
+                        track_id = obj.get('track_id', -1)
+                        bbox = obj.get('bbox', [])
+                        
+                        if len(bbox) == 4:
+                            x1, y1, x2, y2 = map(int, bbox)
+                            # Draw tracking ID
+                            cv2.putText(annotated_image, f"ID: {track_id}", (x1, y2 + 25), 
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                
+                # Save annotated image
+                cv2.imwrite(output_path, annotated_image)
+                
+                # Verify output file was created
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    logger.info(f"✅ Output image created: {output_path} ({os.path.getsize(output_path)} bytes)")
+                    logger.info(f"🎯 Image processing complete: {detections} detections")
+                    
+                    return {
+                        'success': True,
+                        'processing_method': 'Local YOLO11+DeepSORT+SAM2 (Production)',
+                        'output_path': output_path,
+                        'output_filename': output_filename,
+                        'stats': {
+                            'detections': detections,
+                            'tracked_objects': len(result['tracked_objects']),
+                            'image_shape': frame.shape
+                        },
+                        'detection_details': result['detections'][:5],  # First 5 detections
+                        'technologies': ['YOLO11', 'DeepSORT', 'SAM2']
+                    }
+                else:
+                    logger.error(f"❌ Output image file not created or is empty")
+                    return {'success': False, 'error': 'Failed to create output image'}
                 
             except Exception as e:
                 logger.error(f"❌ Image processing failed: {e}")
@@ -660,7 +771,7 @@ if __name__ == '__main__':
     try:
         app.run(
             host='0.0.0.0',
-            port=int(os.environ.get('PORT', 5004)),
+            port=int(os.environ.get('PORT', 5005)),
             debug=False
         )
     finally:
